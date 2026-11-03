@@ -196,37 +196,42 @@ export default function AdminReservas() {
           <button type="button" role="tab" aria-selected={pestana === 'local'} className={pestana === 'local' ? 'active' : ''} onClick={() => setPestana('local')}>
             Reserva de Local
           </button>
+          <button type="button" role="tab" aria-selected={pestana === 'gestion'} className={pestana === 'gestion' ? 'active' : ''} onClick={() => setPestana('gestion')}>
+            Gestión de Mesas
+          </button>
         </div>
 
-        {pestana === 'mesas' ? (
+        {pestana === 'mesas' || pestana === 'gestion' ? (
           <div className="admin-reservas-grid">
             <section className="reservas-main-column" aria-label="Mapa y estado de mesas">
-              <div className="reservas-panel">
-                <div className="reservas-panel-heading">
-                  <h3>Mapa de Mesas</h3>
-                  <span>{mesas.length} mesas</span>
-                  <div className="reservas-legend">
-                    <span className="legend-libre">● Libre</span>
-                    <span className="legend-ocupada">● Ocupada</span>
-                    <span className="legend-cobrar">● Por cobrar</span>
+              {pestana === 'gestion' && (
+                <div className="reservas-panel">
+                  <div className="reservas-panel-heading">
+                    <h3>Mapa de Mesas</h3>
+                    <span>{mesas.length} mesas</span>
+                    <div className="reservas-legend">
+                      <span className="legend-libre">● Libre</span>
+                      <span className="legend-ocupada">● Ocupada</span>
+                      <span className="legend-cobrar">● Por cobrar</span>
+                    </div>
+                  </div>
+                  <div className="reservas-table-map">
+                    {mesas.map((mesa) => (
+                      <button
+                        type="button"
+                        key={mesa.id}
+                        className={`reservas-table-tile status-${mesa.estado.toLowerCase().replaceAll(' ', '-')}${mesaSeleccionada === mesa.id ? ' selected' : ''}`}
+                        onClick={() => setMesaSeleccionada(mesa.id)}
+                        aria-pressed={mesaSeleccionada === mesa.id}
+                      >
+                        <strong>{mesa.numero}</strong>
+                        <span>{mesa.estado}</span>
+                        {mesa.motivo && <small>{mesa.motivo}</small>}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="reservas-table-map">
-                  {mesas.map((mesa) => (
-                    <button
-                      type="button"
-                      key={mesa.id}
-                      className={`reservas-table-tile status-${mesa.estado.toLowerCase().replaceAll(' ', '-')}${mesaSeleccionada === mesa.id ? ' selected' : ''}`}
-                      onClick={() => setMesaSeleccionada(mesa.id)}
-                      aria-pressed={mesaSeleccionada === mesa.id}
-                    >
-                      <strong>{mesa.numero}</strong>
-                      <span>{mesa.estado}</span>
-                      {mesa.motivo && <small>{mesa.motivo}</small>}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
 
               <div className="reservas-panel reservas-table-panel">
                 <div className="reservas-management-heading">
