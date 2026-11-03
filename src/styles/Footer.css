@@ -1,0 +1,230 @@
+.mpp-footer {
+  background: linear-gradient(180deg, #110e0c 0%, #080706 100%);
+  border-top: 1px solid rgba(197, 157, 95, 0.2);
+  padding: 40px 40px 25px;
+  color: var(--text-muted, #c4beb7);
+  font-size: 13px;
+}
+
+.mpp-footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.5fr;
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto 30px;
+}
+
+.footer-nav {
+  display: flex;
+  gap: 10px 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  flex-wrap: wrap;
+}
+
+.footer-nav a {
+  color: #c4beb7;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-nav a:hover {
+  color: var(--gold-secondary, #d4af75);
+}
+
+.footer-address {
+  margin: 8px 0;
+  color: #e0e0e0;
+}
+
+.footer-phone {
+  margin: 0;
+  color: var(--gold-primary, #d4af37);
+  font-weight: bold;
+}
+
+.footer-heading {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.footer-links-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links-list li {
+  margin-bottom: 8px;
+}
+
+.footer-links-list a {
+  color: #c4beb7;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-links-list a:hover {
+  color: var(--gold-secondary, #d4af75);
+}
+
+.footer-claims-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 9px;
+  padding: 10px 13px;
+  color: #d4af75;
+  background: linear-gradient(
+    135deg,
+    rgba(197, 157, 95, 0.09),
+    rgba(197, 157, 95, 0.025)
+  );
+  border: 1px solid rgba(197, 157, 95, 0.4);
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+  transition:
+    color 0.3s ease,
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.footer-claims-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.footer-claims-text {
+  white-space: nowrap;
+}
+
+.footer-claims-arrow {
+  display: inline-block;
+  font-size: 15px;
+  transition: transform 0.3s ease;
+}
+
+.footer-claims-link:hover {
+  color: #110e0c;
+  background: linear-gradient(135deg, #e2c17d, #c59d5f);
+  border-color: #e2c17d;
+  box-shadow: 0 4px 16px rgba(197, 157, 95, 0.15);
+}
+
+.footer-claims-link:hover .footer-claims-arrow {
+  transform: translate(2px, -2px);
+}
+
+.footer-claims-link:focus-visible {
+  outline: 2px solid #e2c17d;
+  outline-offset: 4px;
+}
+
+.footer-social-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  margin-bottom: 10px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-social-btn:hover {
+  color: var(--gold-secondary, #d4af75);
+}
+
+.footer-social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.footer-facebook {
+  background: #1877f2;
+}
+
+.footer-instagram {
+  background: linear-gradient(
+    45deg,
+    #feda75,
+    #fa7e1e,
+    #d62976,
+    #962fbf,
+    #4f5bd5
+  );
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mpp-footer-bottom {
+  max-width: 100%;
+  border-top: 1px solid #1f1f23;
+  padding-top: 18px;
+  text-align: center;
+  color: #b8afa5;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .mpp-footer {
+    padding: 35px 24px 22px;
+  }
+
+  .mpp-footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px 24px;
+  }
+
+  .mpp-footer-grid > div:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .mpp-footer {
+    padding: 30px 20px 20px;
+  }
+
+  .mpp-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+    margin-bottom: 25px;
+  }
+
+  .mpp-footer-grid > div:first-child {
+    grid-column: auto;
+  }
+
+  .footer-nav {
+    gap: 12px 16px;
+  }
+
+  .footer-claims-link {
+    padding: 11px 14px;
+  }
+
+  .mpp-footer-bottom {
+    line-height: 1.7;
+  }
+}

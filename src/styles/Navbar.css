@@ -1,0 +1,97 @@
+.mpp-navbar {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 12, 10, 0.95) 0%,
+    rgba(10, 9, 8, 0.9) 100%
+  );
+  border-bottom: 1px solid rgba(197, 157, 95, 0.2);
+  padding: 14px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+}
+
+.mpp-navbar a {
+  text-decoration: none;
+}
+
+.mpp-logo {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.mpp-logo-image {
+  display: block;
+  width: auto;
+  height: 64px;
+  max-width: 150px;
+  object-fit: contain;
+  border: 1px solid rgba(197, 157, 95, 0.55);
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(197, 157, 95, 0.22);
+}
+
+.mpp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mpp-nav-links a {
+  color: #c4beb7;
+  font-size: 14px;
+  transition: color 0.2s;
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+
+.mpp-nav-links a:hover,
+.mpp-nav-links a.active {
+  color: var(--gold-secondary, #cfa86e);
+}
+
+.mpp-login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 44px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, #171411 0%, #0c0a09 100%);
+  color: #d5a900;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: lowercase;
+  text-decoration: none;
+  box-shadow:
+    0 7px 10px rgba(212, 175, 55, 0.6),
+    0 0 16px rgba(212, 175, 55, 0.16);
+  transition:
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.mpp-login-button:hover {
+  color: #f3e5ab;
+  transform: translateY(-1px);
+  box-shadow:
+    0 9px 14px rgba(212, 175, 55, 0.72),
+    0 0 20px rgba(212, 175, 55, 0.22);
+}
+
+.mpp-login-button:focus-visible {
+  outline: 2px solid #f3e5ab;
+  outline-offset: 3px;
+}

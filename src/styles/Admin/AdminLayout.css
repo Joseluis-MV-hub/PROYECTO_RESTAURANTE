@@ -1,0 +1,150 @@
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #0b0a09;
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  padding: 25px 35px;
+  overflow-y: auto;
+}
+
+.admin-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  border-bottom: 1px solid rgba(197, 157, 95, 0.2);
+  padding-bottom: 15px;
+}
+
+.admin-page-title {
+  margin: 0;
+  font-size: 22px;
+  color: #fff;
+}
+
+.admin-page-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.admin-topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.admin-status-indicator {
+  font-size: 12px;
+  color: var(--gold-light);
+}
+
+.admin-user-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--gold-secondary);
+  color: #000;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.admin-notifications {
+  position: relative;
+}
+
+.admin-notification-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: #f5f2eb;
+  color: #24211d;
+  cursor: pointer;
+}
+
+.admin-notification-button:hover,
+.admin-notification-button:focus-visible {
+  background: var(--gold-secondary);
+}
+
+.admin-notification-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid #0b0a09;
+  border-radius: 10px;
+  background: #d84c3f;
+  color: #fff;
+  font-size: 10px;
+  line-height: 13px;
+  text-align: center;
+}
+
+.admin-notification-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  background: #1b1a18;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  color: #fff;
+}
+
+.admin-notification-panel h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.admin-notification-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.admin-notification-panel ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-notification-panel li {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-left: 2px solid var(--gold-secondary);
+  background: #24221f;
+}
+
+.admin-notification-panel li strong {
+  font-size: 12px;
+}
+
+.admin-notification-panel li span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 992px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+}
