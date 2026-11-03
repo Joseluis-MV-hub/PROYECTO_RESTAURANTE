@@ -1,27 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout';
+import { MESAS_INICIALES, leerReservas, obtenerMesasDisponibles } from '../../data/reservas';
 import '../../styles/Admin/AdminReservas.css';
-
-const MESAS_INICIALES = Array.from({ length: 12 }, (_, index) => {
-  const numero = index + 1;
-  const estados = {
-    2: 'Ocupada',
-    4: 'Por cobrar',
-    6: 'Ocupada',
-    9: 'Ocupada',
-    5: 'Fuera de servicio',
-  };
-
-  return {
-    id: numero,
-    numero: String(numero).padStart(2, '0'),
-    capacidad: numero % 2 === 0 ? 4 : 2,
-    zona: numero === 5 ? 'Terraza' : 'Salón',
-    estado: estados[numero] || 'Libre',
-    motivo: numero === 5 ? 'Pata rota - hasta el 03/11' : '',
-    habilitada: numero !== 5,
-  };
-});
 
 const leerLista = (clave, respaldo = []) => {
   try {
@@ -34,6 +14,10 @@ const leerLista = (clave, respaldo = []) => {
 
 const codigoReserva = (reserva) => reserva.codigo || `#MPP-${String(reserva.id).slice(-6)}`;
 const fechaComoClave = (fecha) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+const minutosDeHora = (hora) => {
+  const [horas, minutos] = String(hora || '0:0').split(':').map(Number);
+  return horas * 60 + minutos;
+};
 const crearFormularioLocal = (fecha = fechaComoClave(new Date())) => ({
   fecha,
   nombre: '',
@@ -48,7 +32,7 @@ const crearFormularioLocal = (fecha = fechaComoClave(new Date())) => ({
 export default function AdminReservas() {
   const [pestana, setPestana] = useState('mesas');
   const [mesas, setMesas] = useState(() => leerLista('mpp_admin_mesas', MESAS_INICIALES));
-  const [reservas, setReservas] = useState(() => leerLista('mpp_reservas'));
+  const [reservas, setReservas] = useState(leerReservas);
   const [cierres, setCierres] = useState(() => leerLista('mpp_admin_cierres_local'));
   const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
   const [mesaEnEdicion, setMesaEnEdicion] = useState(null);
@@ -59,22 +43,43 @@ export default function AdminReservas() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => fechaComoClave(new Date()));
   const [reservaLocal, setReservaLocal] = useState(() => crearFormularioLocal());
   const [mensaje, setMensaje] = useState('');
+  const [fechaAgenda, setFechaAgenda] = useState(() => fechaComoClave(new Date()));
+  const [zonaAgenda, setZonaAgenda] = useState('Todas las zonas');
+  const [turnoAgenda, setTurnoAgenda] = useState('Cena');
+  const [calendarioAbierto, setCalendarioAbierto] = useState(false);
+  const [nuevaReservaAbierta, setNuevaReservaAbierta] = useState(true);
+  const [formularioReserva, setFormularioReserva] = useState(() => ({
+    fecha: fechaComoClave(new Date()),
+    turno: '20:30',
+    personas: '4',
+    duracion: '105',
+    nombre: '',
+    telefono: '',
+    mesa: '',
+  }));
+  const [errorReservaAgenda, setErrorReservaAgenda] = useState('');
 
   useEffect(() => {
     localStorage.setItem('mpp_admin_mesas', JSON.stringify(mesas));
+    window.dispatchEvent(new Event('mpp:mesas-updated'));
   }, [mesas]);
 
   useEffect(() => {
     localStorage.setItem('mpp_admin_cierres_local', JSON.stringify(cierres));
+    window.dispatchEvent(new Event('mpp:closures-updated'));
   }, [cierres]);
 
   useEffect(() => {
     const sincronizarReservas = (event) => {
-      if (!event || event.key === 'mpp_reservas') setReservas(leerLista('mpp_reservas'));
+      if (!event || event.key === 'mpp_reservas' || event.type === 'mpp:reservas-updated') setReservas(leerReservas());
     };
 
     window.addEventListener('storage', sincronizarReservas);
-    return () => window.removeEventListener('storage', sincronizarReservas);
+    window.addEventListener('mpp:reservas-updated', sincronizarReservas);
+    return () => {
+      window.removeEventListener('storage', sincronizarReservas);
+      window.removeEventListener('mpp:reservas-updated', sincronizarReservas);
+    };
   }, []);
 
   const cambiarEstadoMesa = (event) => {
@@ -166,10 +171,75 @@ export default function AdminReservas() {
     setMensaje(reservaLocal.cierraPublico ? 'Cierre del local confirmado.' : 'Reserva del local registrada.');
   };
 
+  const cambiarCampoNuevaReserva = (event) => {
+    const { name, value } = event.target;
+    setFormularioReserva((actual) => ({ ...actual, [name]: value, ...(name === 'fecha' || name === 'turno' || name === 'personas' || name === 'duracion' ? { mesa: '' } : {}) }));
+    setErrorReservaAgenda('');
+  };
+
+  const guardarNuevaReserva = (event) => {
+    event.preventDefault();
+    const fechaCerrada = cierres.some((cierre) => cierre.fecha === formularioReserva.fecha && cierre.estado === 'Cerrado');
+    if (fechaCerrada) {
+      setErrorReservaAgenda('El local está cerrado en esa fecha.');
+      return;
+    }
+
+    const disponibles = obtenerMesasDisponibles({
+      mesas,
+      reservas,
+      fecha: formularioReserva.fecha,
+      turno: formularioReserva.turno,
+      personas: formularioReserva.personas,
+      duracion: formularioReserva.duracion,
+    });
+    const mesa = disponibles.find((item) => String(item.numero) === String(formularioReserva.mesa))
+      || (!formularioReserva.mesa ? disponibles[0] : null);
+
+    if (!mesa) {
+      setErrorReservaAgenda(formularioReserva.mesa ? 'Esa mesa ya no está disponible en ese horario.' : 'No hay mesas disponibles para ese horario y cantidad de personas.');
+      return;
+    }
+
+    const id = Date.now();
+    const nueva = {
+      id,
+      codigo: `MPP-AD-${String(id).slice(-4)}`,
+      nombre: formularioReserva.nombre.trim(),
+      telefono: formularioReserva.telefono.trim(),
+      fecha: formularioReserva.fecha,
+      turno: formularioReserva.turno,
+      personas: formularioReserva.personas,
+      duracion: Number(formularioReserva.duracion),
+      mesa: mesa.numero,
+      sede: mesa.zona,
+      estado: 'Confirmada',
+      plataformaPago: 'Local',
+      importe: 0,
+      origen: 'Administración',
+    };
+    const actualizadas = [...reservas, nueva];
+    setReservas(actualizadas);
+    localStorage.setItem('mpp_reservas', JSON.stringify(actualizadas));
+    window.dispatchEvent(new Event('mpp:reservas-updated'));
+    setFechaAgenda(nueva.fecha);
+    setFormularioReserva((actual) => ({ ...actual, mesa: '', nombre: '' }));
+    setErrorReservaAgenda('');
+    setMensaje(`Reserva confirmada para ${nueva.nombre}, Mesa ${nueva.mesa}.`);
+  };
+
   const reabrirLocal = (cierreId) => {
     setCierres((actuales) => actuales.map((cierre) => cierre.id === cierreId
       ? { ...cierre, estado: 'Abierto', cierraPublico: false }
       : cierre));
+  };
+
+  const cambiarDiaAgenda = (cantidad) => {
+    const fecha = new Date(`${fechaAgenda}T12:00:00`);
+    fecha.setDate(fecha.getDate() + cantidad);
+    const nuevaFecha = fechaComoClave(fecha);
+    setFechaAgenda(nuevaFecha);
+    setFormularioReserva((actual) => ({ ...actual, fecha: nuevaFecha, mesa: '' }));
   };
 
   const cambiarMes = (cantidad) => {
@@ -185,6 +255,39 @@ export default function AdminReservas() {
     .filter((cierre) => cierre.fecha >= hoy)
     .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
   const reservasActivas = mesas.filter((mesa) => mesa.habilitada).length;
+  const inicioAgenda = turnoAgenda === 'Almuerzo' ? 12 * 60 : 18 * 60;
+  const finAgenda = turnoAgenda === 'Almuerzo' ? 18 * 60 : 24 * 60;
+  const reservasDelDia = reservas
+    .filter((reserva) => reserva.fecha === fechaAgenda && reserva.estado !== 'Cancelada')
+    .filter((reserva) => zonaAgenda === 'Todas las zonas' || mesas.find((mesa) => String(mesa.numero) === String(reserva.mesa))?.zona === zonaAgenda)
+    .sort((a, b) => minutosDeHora(a.turno) - minutosDeHora(b.turno));
+  const reservasVisibles = reservasDelDia.filter((reserva) => minutosDeHora(reserva.turno) >= inicioAgenda && minutosDeHora(reserva.turno) < finAgenda);
+  const horaActual = minutosDeHora(new Date().toTimeString().slice(0, 5));
+  const mostrarMarcaActual = fechaAgenda === hoy && horaActual >= inicioAgenda && horaActual < finAgenda;
+  const posicionMarcaActual = ((horaActual - inicioAgenda) / (finAgenda - inicioAgenda)) * 100;
+  const llegadasProximas = reservasVisibles.filter((reserva) => fechaAgenda > hoy || (fechaAgenda === hoy && minutosDeHora(reserva.turno) >= horaActual)).slice(0, 5);
+  const reservasAtrasadas = reservasDelDia.filter((reserva) => reserva.fecha === hoy
+    && minutosDeHora(reserva.turno) + Number(reserva.duracion || 105) <= horaActual
+    && !['cancelada', 'terminada'].includes(String(reserva.estado || '').toLowerCase())
+    && !reserva.alertaAvisada);
+  const estadoMesaEnHorario = (mesa) => {
+    if (!mesa.habilitada) return 'Fuera de servicio';
+    const reservaActual = reservas.find((reserva) => {
+      if (reserva.fecha !== fechaAgenda || String(reserva.mesa) !== String(mesa.numero) || String(reserva.estado || '').toLowerCase() === 'cancelada') return false;
+      const inicio = minutosDeHora(reserva.turno);
+      return inicio <= horaActual && inicio + Number(reserva.duracion || 105) > horaActual;
+    });
+    if (!reservaActual) return 'Libre';
+    return String(reservaActual.estado || '').toLowerCase() === 'por cobrar' ? 'Por cobrar' : 'Ocupada';
+  };
+  const mesasDisponibles = obtenerMesasDisponibles({
+    mesas,
+    reservas,
+    fecha: formularioReserva.fecha,
+    turno: formularioReserva.turno,
+    personas: formularioReserva.personas,
+    duracion: formularioReserva.duracion,
+  });
 
   return (
     <AdminLayout title="Reservas">
@@ -201,7 +304,121 @@ export default function AdminReservas() {
           </button>
         </div>
 
-        {pestana === 'mesas' || pestana === 'gestion' ? (
+        {pestana === 'mesas' ? (
+          <div className="reservas-agenda-layout">
+            <section className="reservas-agenda-main">
+              <div className="reservas-agenda-toolbar">
+                <div className="reservas-agenda-date-controls">
+                  <button type="button" className="reservas-calendar-toggle" onClick={() => setCalendarioAbierto((abierto) => !abierto)} aria-expanded={calendarioAbierto}>Calendario</button>
+                  {calendarioAbierto && <input aria-label="Elegir fecha de reservas" type="date" value={fechaAgenda} onChange={(event) => { setFechaAgenda(event.target.value); setFormularioReserva((actual) => ({ ...actual, fecha: event.target.value, mesa: '' })); }} />}
+                  <button type="button" className="reservas-date-arrow" aria-label="Día anterior" onClick={() => cambiarDiaAgenda(-1)}>‹</button>
+                  <strong>{new Date(`${fechaAgenda}T12:00:00`).toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+                  <button type="button" className="reservas-date-arrow" aria-label="Día siguiente" onClick={() => cambiarDiaAgenda(1)}>›</button>
+                  <button type="button" className="reservas-today-button" onClick={() => { setFechaAgenda(hoy); setFormularioReserva((actual) => ({ ...actual, fecha: hoy, mesa: '' })); }}>Hoy</button>
+                  <select aria-label="Filtrar por zona" value={zonaAgenda} onChange={(event) => setZonaAgenda(event.target.value)}>
+                    <option>Todas las zonas</option>
+                    {[...new Set(mesas.map((mesa) => mesa.zona))].map((zona) => <option key={zona}>{zona}</option>)}
+                  </select>
+                </div>
+                <div className="reservas-agenda-actions">
+                  <div className="reservas-shift-toggle" aria-label="Turno de reservas">
+                    {['Almuerzo', 'Cena'].map((turno) => <button type="button" key={turno} className={turnoAgenda === turno ? 'active' : ''} aria-pressed={turnoAgenda === turno} onClick={() => setTurnoAgenda(turno)}>{turno}</button>)}
+                  </div>
+                  <button type="button" className="reservas-primary-button" onClick={() => {
+                    setNuevaReservaAbierta(true);
+                    setFormularioReserva((actual) => ({ ...actual, fecha: fechaAgenda, nombre: '', telefono: '', mesa: '' }));
+                    setErrorReservaAgenda('');
+                    setMensaje('');
+                  }}>+ Nueva reserva</button>
+                </div>
+              </div>
+
+              <div className="reservas-agenda-legend" aria-label="Estados de reservas">
+                <span className="agenda-status-confirmada">Confirmada</span><span className="agenda-status-sentada">Sentado</span><span className="agenda-status-pendiente">Pendiente</span><span className="agenda-status-cobrar">Por cobrar</span><span className="agenda-status-cancelada">Terminada</span><span className="agenda-status-fuera">Fuera de servicio</span>
+              </div>
+
+              <div className="reservas-timeline-scroll">
+                <div className="reservas-timeline">
+                  <div className="reservas-timeline-header">
+                    <span />
+                    <div className="reservas-timeline-hours">{Array.from({ length: 6 }, (_, index) => <span key={index}>{String(Math.floor(inicioAgenda / 60) + index).padStart(2, '0')}:00</span>)}</div>
+                  </div>
+                  {mesas.map((mesa, index) => {
+                    const reservasMesa = reservasVisibles.filter((reserva) => String(reserva.mesa) === String(mesa.numero));
+                    return (
+                      <div className={`reservas-timeline-row${!mesa.habilitada ? ' is-disabled' : ''}`} key={mesa.id}>
+                        <div className="reservas-timeline-table-label"><strong>Mesa {mesa.numero}</strong><small>{mesa.capacidad} pers. · {mesa.zona}</small></div>
+                        <div className="reservas-timeline-track">
+                          {mostrarMarcaActual && <span className="reservas-timeline-now" style={{ left: `${posicionMarcaActual}%` }}>{index === 0 && <small>{new Date().toTimeString().slice(0, 5)}</small>}</span>}
+                          {!mesa.habilitada && <span className="reservas-timeline-disabled-label">Fuera de servicio</span>}
+                          {reservasMesa.map((reserva) => {
+                            const minutos = minutosDeHora(reserva.turno);
+                            const inicioBloque = Math.max(minutos, inicioAgenda);
+                            const finBloque = Math.min(minutos + Number(reserva.duracion || 105), finAgenda);
+                            const left = ((inicioBloque - inicioAgenda) / (finAgenda - inicioAgenda)) * 100;
+                            const width = ((finBloque - inicioBloque) / (finAgenda - inicioAgenda)) * 100;
+                            return <div key={reserva.id} className={`reservas-timeline-booking status-${String(reserva.estado || 'Confirmada').toLowerCase().replaceAll(' ', '-')}`} style={{ left: `${left}%`, width: `${width}%` }} title={`${reserva.nombre || 'Reserva'} · ${reserva.personas || '—'} personas · ${reserva.turno}`}>
+                              <strong>{reserva.nombre || 'Reserva'}</strong><small>{reserva.personas || '—'} pers. · {reserva.turno} · Mesa {mesa.numero}</small>
+                            </div>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {reservasVisibles.length === 0 && <p className="reservas-timeline-empty">No hay reservas para este turno y fecha.</p>}
+                  <div className="reservas-timeline-caption">Agenda del turno · Las reservas se guardan en este dispositivo.</div>
+                </div>
+              </div>
+            </section>
+
+            <aside className="reservas-agenda-sidebar">
+              <section className={`reservas-panel reservas-delay-panel${reservasAtrasadas.length ? ' has-delay' : ''}`}>
+                <h3>{reservasAtrasadas.length ? `Alerta: ${reservasAtrasadas[0].nombre || 'Reserva'} pasada de hora` : 'Sin alertas de demora'}</h3>
+                <p>{reservasAtrasadas.length ? `Mesa ${reservasAtrasadas[0].mesa || 'sin asignar'} · ${reservasAtrasadas[0].turno} · ${reservasAtrasadas[0].personas || '—'} personas` : 'Las reservas de hoy están al día.'}</p>
+                {reservasAtrasadas.length > 0 && <button type="button" onClick={() => actualizarReserva(reservasAtrasadas[0].id, 'alertaAvisada', true)}>Marcar aviso realizado</button>}
+              </section>
+
+              {nuevaReservaAbierta && (
+                <section className="reservas-panel reservas-new-booking-panel">
+                  <h3>Nueva reserva</h3>
+                  <form className="reservas-new-booking-form" onSubmit={guardarNuevaReserva}>
+                    <label>Fecha<input name="fecha" type="date" value={formularioReserva.fecha} onChange={cambiarCampoNuevaReserva} required /></label>
+                    <div className="reservas-booking-fields-row">
+                      <label>Hora<input name="turno" type="time" step="900" value={formularioReserva.turno} onChange={cambiarCampoNuevaReserva} required /></label>
+                      <label>Personas<input name="personas" type="number" min="1" max="30" value={formularioReserva.personas} onChange={cambiarCampoNuevaReserva} required /></label>
+                    </div>
+                    <label>Duración (minutos)<input name="duracion" type="number" min="30" max="360" step="15" value={formularioReserva.duracion} onChange={cambiarCampoNuevaReserva} required /></label>
+                    <label>Nombre del cliente<input name="nombre" value={formularioReserva.nombre} onChange={cambiarCampoNuevaReserva} placeholder="Nombre del cliente" required /></label>
+                    <label>Teléfono<input name="telefono" type="tel" value={formularioReserva.telefono} onChange={cambiarCampoNuevaReserva} placeholder="Teléfono de contacto" /></label>
+                    <div className="reservas-available-tables">
+                      <span>Mesas disponibles · capacidad suficiente</span>
+                      {mesasDisponibles.length ? mesasDisponibles.slice(0, 4).map((mesa) => <button type="button" key={mesa.id} className={String(formularioReserva.mesa) === String(mesa.numero) ? 'selected' : ''} aria-pressed={String(formularioReserva.mesa) === String(mesa.numero)} onClick={() => setFormularioReserva((actual) => ({ ...actual, mesa: mesa.numero }))}>Mesa {mesa.numero} · {mesa.capacidad}p</button>) : <small>No hay mesas disponibles para esos datos.</small>}
+                    </div>
+                    <button type="button" className="reservas-search-table-button" onClick={() => {
+                      if (mesasDisponibles.length) {
+                        setFormularioReserva((actual) => ({ ...actual, mesa: mesasDisponibles[0].numero }));
+                        setErrorReservaAgenda('');
+                      } else {
+                        setErrorReservaAgenda('No hay mesas disponibles para esos datos.');
+                      }
+                    }}>Buscar mesa libre</button>
+                    {errorReservaAgenda && <p className="reservas-form-error" role="alert">{errorReservaAgenda}</p>}
+                    {mensaje && <p className="reservas-success" role="status">{mensaje}</p>}
+                    <div className="reservas-booking-form-actions">
+                      <button type="button" className="reservas-cancel-button" onClick={() => { setNuevaReservaAbierta(false); setErrorReservaAgenda(''); }}>Cancelar</button>
+                      <button type="submit" className="reservas-primary-button">Confirmar reserva</button>
+                    </div>
+                  </form>
+                </section>
+              )}
+
+              <section className="reservas-panel reservas-arrivals-panel">
+                <div className="reservas-panel-heading"><h3>Próximas llegadas</h3><span>{llegadasProximas.length}</span></div>
+                {llegadasProximas.length ? llegadasProximas.map((reserva) => <article className="reservas-arrival-item" key={reserva.id}><i className={`arrival-dot status-${String(reserva.estado || 'Confirmada').toLowerCase()}`} /><div><strong>{reserva.nombre || 'Reserva'}</strong><small>{reserva.turno} · Mesa {reserva.mesa || 'por asignar'} · {reserva.personas || '—'} pers.</small></div></article>) : <p className="reservas-empty">No hay llegadas próximas para esta fecha.</p>}
+              </section>
+            </aside>
+          </div>
+        ) : pestana === 'gestion' ? (
           <div className="admin-reservas-grid">
             <section className="reservas-main-column" aria-label="Mapa y estado de mesas">
               {pestana === 'gestion' && (
@@ -217,17 +434,20 @@ export default function AdminReservas() {
                   </div>
                   <div className="reservas-table-map">
                     {mesas.map((mesa) => (
-                      <button
-                        type="button"
-                        key={mesa.id}
-                        className={`reservas-table-tile status-${mesa.estado.toLowerCase().replaceAll(' ', '-')}${mesaSeleccionada === mesa.id ? ' selected' : ''}`}
-                        onClick={() => setMesaSeleccionada(mesa.id)}
-                        aria-pressed={mesaSeleccionada === mesa.id}
-                      >
-                        <strong>{mesa.numero}</strong>
-                        <span>{mesa.estado}</span>
-                        {mesa.motivo && <small>{mesa.motivo}</small>}
-                      </button>
+                      (() => {
+                        const estado = estadoMesaEnHorario(mesa);
+                        return <button
+                          type="button"
+                          key={mesa.id}
+                          className={`reservas-table-tile status-${estado.toLowerCase().replaceAll(' ', '-')}${mesaSeleccionada === mesa.id ? ' selected' : ''}`}
+                          onClick={() => setMesaSeleccionada(mesa.id)}
+                          aria-pressed={mesaSeleccionada === mesa.id}
+                        >
+                          <strong>{mesa.numero}</strong>
+                          <span>{estado}</span>
+                          {estado === 'Fuera de servicio' && mesa.motivo && <small>{mesa.motivo}</small>}
+                        </button>;
+                      })()
                     ))}
                   </div>
                 </div>

@@ -137,6 +137,39 @@
 .booking-notes-field { grid-column: 1 / -1; }
 .booking-form-grid textarea { min-height: 82px; resize: vertical; }
 
+.booking-table-availability {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(197, 157, 95, 0.2);
+  border-radius: 6px;
+  background: rgba(15, 13, 11, 0.42);
+}
+
+.booking-table-availability-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.booking-table-availability-heading strong { color: #e6dfd4; font-size: 11px; }
+.booking-table-availability-heading span { min-width: 22px; padding: 3px 7px; border-radius: 12px; background: rgba(197, 157, 95, 0.16); color: #dfbd70; font-size: 9px; text-align: center; }
+.booking-table-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 7px; }
+.booking-table-option {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(197, 157, 95, 0.2);
+  border-radius: 5px;
+  background: rgba(18, 15, 12, 0.78);
+  color: #f5f0e8;
+  cursor: pointer;
+  text-align: left;
+}
+.booking-table-option:hover,
+.booking-table-option.is-selected { border-color: #c5a052; background: rgba(137, 103, 44, 0.2); }
+.booking-table-option:focus-visible { outline: 2px solid #f4e3b2; outline-offset: 2px; }
+.booking-table-option strong { font-size: 10px; }
+.booking-table-option span { color: var(--booking-muted); font-size: 9px; }
+.booking-table-empty { margin: 0; color: var(--booking-muted); font-size: 10px; line-height: 1.5; }
+
 .booking-primary-button,
 .booking-secondary-button,
 .booking-back-button {

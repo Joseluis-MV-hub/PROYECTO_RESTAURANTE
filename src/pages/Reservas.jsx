@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, Check, Clock3, CreditCard, Download, Landmark, LockKeyhole, ShieldCheck, Smartphone, Wallet } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { leerMesasAdministrativas, leerReservas, obtenerMesasDisponibles } from '../data/reservas';
 import '../styles/Reservas.css';
 
 const METODOS_PAGO = [
@@ -45,6 +46,29 @@ export default function Reservas() {
   const [segundosRestantes, setSegundosRestantes] = useState(600);
   const [fechaRetencion, setFechaRetencion] = useState(null);
   const [mesaSugerida, setMesaSugerida] = useState(null);
+  const [mesaSeleccionada, setMesaSeleccionada] = useState('');
+  const [mesasAdmin, setMesasAdmin] = useState(leerMesasAdministrativas);
+  const [reservasExistentes, setReservasExistentes] = useState(leerReservas);
+  const [cierresAdmin, setCierresAdmin] = useState(() => leerLista('mpp_admin_cierres_local'));
+
+  useEffect(() => {
+    const sincronizarStorage = (event) => {
+      if (!event || event.key === 'mpp_admin_mesas' || event.type === 'mpp:mesas-updated') setMesasAdmin(leerMesasAdministrativas());
+      if (!event || event.key === 'mpp_reservas' || event.type === 'mpp:reservas-updated') setReservasExistentes(leerReservas());
+      if (!event || event.key === 'mpp_admin_cierres_local' || event.type === 'mpp:closures-updated') setCierresAdmin(leerLista('mpp_admin_cierres_local'));
+    };
+
+    window.addEventListener('storage', sincronizarStorage);
+    window.addEventListener('mpp:mesas-updated', sincronizarStorage);
+    window.addEventListener('mpp:reservas-updated', sincronizarStorage);
+    window.addEventListener('mpp:closures-updated', sincronizarStorage);
+    return () => {
+      window.removeEventListener('storage', sincronizarStorage);
+      window.removeEventListener('mpp:mesas-updated', sincronizarStorage);
+      window.removeEventListener('mpp:reservas-updated', sincronizarStorage);
+      window.removeEventListener('mpp:closures-updated', sincronizarStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (paso !== 2 || !fechaRetencion) return undefined;
@@ -63,6 +87,15 @@ export default function Reservas() {
     const temporizador = window.setInterval(actualizarCuentaRegresiva, 1000);
     return () => window.clearInterval(temporizador);
   }, [paso, fechaRetencion]);
+
+  const localCerrado = cierresAdmin.some((cierre) => cierre.fecha === form.fecha && cierre.estado === 'Cerrado');
+  const mesasDisponibles = localCerrado ? [] : obtenerMesasDisponibles({
+    mesas: mesasAdmin,
+    reservas: reservasExistentes,
+    fecha: form.fecha,
+    turno: form.turno,
+    personas: form.personas,
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -85,6 +118,7 @@ export default function Reservas() {
     }
 
     setForm((actual) => ({ ...actual, [name]: newValue }));
+    if (['fecha', 'turno', 'personas', 'sede'].includes(name)) setMesaSeleccionada('');
     setErrorReserva('');
   };
 
@@ -97,23 +131,21 @@ export default function Reservas() {
       return;
     }
 
-    const mesas = leerLista('mpp_admin_mesas');
-    const reservasExistentes = leerLista('mpp_reservas');
-    const personas = Number(form.personas);
-    const ocupadas = new Set(reservasExistentes
-      .filter((reserva) => reserva.fecha === form.fecha && reserva.turno === form.turno && reserva.estado !== 'Cancelada' && reserva.mesa)
-      .map((reserva) => String(reserva.mesa)));
-    const disponibles = mesas.filter((mesa) => mesa.habilitada
-      && !['ocupada', 'por cobrar', 'fuera de servicio'].includes(String(mesa.estado).toLowerCase())
-      && Number(mesa.capacidad) >= personas
-      && !ocupadas.has(String(mesa.numero)));
-
-    if (mesas.length > 0 && disponibles.length === 0) {
+    const mesas = leerMesasAdministrativas();
+    const reservasActuales = leerReservas();
+    const disponibles = obtenerMesasDisponibles({ mesas, reservas: reservasActuales, fecha: form.fecha, turno: form.turno, personas: form.personas });
+    const mesaElegida = disponibles.find((mesa) => String(mesa.numero) === String(mesaSeleccionada))
+      || (!mesaSeleccionada ? disponibles[0] : null);
+    setMesasAdmin(mesas);
+    setReservasExistentes(reservasActuales);
+    if (!mesaElegida) {
+      setMesaSeleccionada('');
       setErrorReserva('No hay una mesa disponible para esa cantidad de personas y horario. Prueba otro horario o una cantidad menor.');
       return;
     }
 
-    setMesaSugerida(disponibles[0] || null);
+    setMesaSugerida(mesaElegida);
+    setMesaSeleccionada(String(mesaElegida.numero));
     setSegundosRestantes(600);
     setFechaRetencion(Date.now() + 10 * 60 * 1000);
     setErrorReserva('');
@@ -132,13 +164,46 @@ export default function Reservas() {
       return;
     }
 
+    const cierresActuales = leerLista('mpp_admin_cierres_local');
+    setCierresAdmin(cierresActuales);
+    if (cierresActuales.some((cierre) => cierre.fecha === form.fecha && cierre.estado === 'Cerrado')) {
+      setPaso(1);
+      setFechaRetencion(null);
+      setMesaSugerida(null);
+      setMesaSeleccionada('');
+      setErrorReserva('El local cerró en esta fecha. Elige otro día para continuar.');
+      return;
+    }
+
+    const mesasActuales = leerMesasAdministrativas();
+    const reservasActuales = leerReservas();
+    const mesasDisponiblesActuales = obtenerMesasDisponibles({
+      mesas: mesasActuales,
+      reservas: reservasActuales,
+      fecha: form.fecha,
+      turno: form.turno,
+      personas: form.personas,
+    });
+    const mesaConfirmada = mesasDisponiblesActuales.find((mesa) => String(mesa.numero) === String(mesaSugerida?.numero));
+    if (!mesaConfirmada) {
+      setMesasAdmin(mesasActuales);
+      setReservasExistentes(reservasActuales);
+      setPaso(1);
+      setFechaRetencion(null);
+      setMesaSugerida(null);
+      setMesaSeleccionada('');
+      setErrorReserva('Esa mesa ya no está disponible. Elige una de las mesas libres para continuar.');
+      return;
+    }
+
     const id = Date.now();
     const codigo = `MPP-MS-${String(id).slice(-4).padStart(4, '0')}`;
     const nueva = {
       id,
       codigo,
       ...form,
-      mesa: mesaSugerida?.numero || '',
+      mesa: mesaConfirmada.numero,
+      duracion: 105,
       estado: 'Confirmada',
       plataformaPago: metodoPago,
       importe: montoGarantia(form.personas),
@@ -147,9 +212,10 @@ export default function Reservas() {
       fechaRegistro: new Date().toLocaleDateString('es-PE'),
     };
 
-    const reservas = [...leerLista('mpp_reservas'), nueva];
+    const reservas = [...reservasActuales, nueva];
     localStorage.setItem('mpp_reservas', JSON.stringify(reservas));
     window.dispatchEvent(new Event('mpp:reservas-updated'));
+    setReservasExistentes(reservas);
     setReservaConfirmada(nueva);
     setFechaRetencion(null);
     setErrorReserva('');
@@ -162,6 +228,8 @@ export default function Reservas() {
     setAceptaPoliticas(false);
     setErrorReserva('');
     setFechaRetencion(null);
+    setMesaSeleccionada('');
+    setMesaSugerida(null);
     setForm({ dni: '', nombre: '', correo: '', telefono: '', sede: 'Miraflores', fecha: fechaActual, turno: '20:30', personas: '4', comentarios: '' });
   };
 
@@ -257,6 +325,20 @@ export default function Reservas() {
                 <label>Fecha<input type="date" name="fecha" value={form.fecha} onChange={handleChange} min={fechaActual} required /></label>
                 <label>Hora<select name="turno" value={form.turno} onChange={handleChange} required><option value="13:00">13:00 · Almuerzo</option><option value="14:30">14:30 · Almuerzo</option><option value="19:00">19:00 · Cena</option><option value="20:00">20:00 · Cena</option><option value="20:30">20:30 · Cena</option><option value="22:00">22:00 · Cena</option></select></label>
                 <label>Número de personas<select name="personas" value={form.personas} onChange={handleChange} required><option value="1">1 persona</option><option value="2">2 personas</option><option value="4">4 personas</option><option value="6">6 personas</option><option value="8">8 personas</option></select></label>
+                <div className="booking-table-availability" aria-live="polite">
+                  <div className="booking-table-availability-heading"><strong>Mesas disponibles</strong><span>{mesasDisponibles.length}</span></div>
+                  {localCerrado ? (
+                    <p className="booking-table-empty">El local está cerrado en esta fecha.</p>
+                  ) : mesasDisponibles.length > 0 ? (
+                    <div className="booking-table-options">
+                      {mesasDisponibles.map((mesa) => <button type="button" className={`booking-table-option${String(mesaSeleccionada) === String(mesa.numero) ? ' is-selected' : ''}`} key={mesa.id} aria-pressed={String(mesaSeleccionada) === String(mesa.numero)} onClick={() => { setMesaSeleccionada(String(mesa.numero)); setErrorReserva(''); }}>
+                        <strong>Mesa {mesa.numero}</strong><span>{mesa.capacidad} {Number(mesa.capacidad) === 1 ? 'persona' : 'personas'} · {mesa.zona}</span>
+                      </button>)}
+                    </div>
+                  ) : (
+                    <p className="booking-table-empty">No hay mesas libres para esta fecha, hora y cantidad de personas. Prueba otro horario.</p>
+                  )}
+                </div>
                 <label className="booking-notes-field">Comentarios<textarea name="comentarios" rows="3" value={form.comentarios} onChange={handleChange} placeholder="¿Alguna petición especial?" /></label>
               </div>
               {errorReserva && <p className="booking-error" role="alert">{errorReserva}</p>}
